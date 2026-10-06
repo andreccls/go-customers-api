@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci_only_password   # throw-away service container, CI only
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ci -d ci"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      TEST_DATABASE_URL: postgres://ci:ci_only_password@127.0.0.1:5432/ci?sslmode=disable
+      REQUIRE_DB: "1"   # a skipped integration suite must fail the build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Format, vet, staticcheck
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+          go vet ./...
+          go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+          staticcheck ./...
+      - name: Tests (race) + coverage gates
+        run: |
+          go test -race -count=1 \
+            -coverpkg="$(go list ./internal/... | grep -v -e /testdb -e /repotest | paste -sd, -)" \
+            -coverprofile=coverage.out ./...
+          sh scripts/coverage-gate.sh coverage.out
+      - name: Coverage summary
+        if: always()
+        run: go tool cover -func=coverage.out | tail -n 1 >> "$GITHUB_STEP_SUMMARY"
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t go-customers-api .

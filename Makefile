@@ -8,7 +8,7 @@ GO      := $(COMPOSE) --profile tools run --rm tools
 COVERPKG = $$(go list ./internal/... | grep -v -e /testdb -e /repotest | paste -sd, -)
 
 .DEFAULT_GOAL := help
-.PHONY: help build test test-unit coverage lint up down clean tidy
+.PHONY: help build test test-unit coverage lint up down clean tidy demo
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
@@ -40,3 +40,6 @@ down: ## Stop the stack (keeps the database volume)
 clean: ## Stop the stack, DELETE its volumes/images and the coverage files
 	$(COMPOSE) --profile tools down -v --rmi local
 	rm -f coverage.out coverage.html
+
+demo: ## Tour of the running API with curl (needs `make up`, curl and jq)
+	API_PORT=$(or $(API_PORT),8094) ./scripts/demo.sh
