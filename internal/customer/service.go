@@ -68,15 +68,10 @@ func (s *Service) Get(ctx context.Context, id string) (Customer, error) {
 	return s.repo.Get(ctx, id)
 }
 
-// List returns a page of customers. Invalid filters yield validation errors.
+// List returns a page of customers. Invalid filters yield validation errors;
+// callers choose the defaults (see DefaultPageSize).
 func (s *Service) List(ctx context.Context, f Filter) ([]Customer, int, error) {
 	var verrs validation.Errors
-	if f.Page == 0 {
-		f.Page = 1
-	}
-	if f.PageSize == 0 {
-		f.PageSize = DefaultPageSize
-	}
 	if f.Page < 1 {
 		verrs.Add("page", "must be >= 1")
 	}

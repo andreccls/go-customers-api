@@ -1,0 +1,1126 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "go-customers-api",
+    "version": "1.0.0",
+    "description": "Reference/sample API for customer management (CRUD, pagination, search, JWT auth). NOT a production product.\n\nErrors follow RFC 9457 (`application/problem+json`) with a stable `code` extension; validation failures (422) add an `errors` list.\n\nAuthentication: register or log in at `/v1/auth/*`, then send `Authorization: Bearer <access_token>`. Roles: `user` reads/writes customers, `admin` can also delete.",
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "Customers"
+    },
+    {
+      "name": "Operations"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Liveness probe",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "The process is up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness probe (checks the database)",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "summary": "Register a user (role `user`)",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "201": {
+            "description": "User created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "422": {
+            "$ref": "#/components/responses/Validation"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              },
+              "example": {
+                "email": "maria@example.com",
+                "password": "correct horse battery"
+              }
+            }
+          }
+        },
+        "description": "Password: 8 to 72 bytes. The first admin is created at startup from ADMIN_EMAIL/ADMIN_PASSWORD. Rate limited per client IP."
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "summary": "Log in",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Access + refresh tokens.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              },
+              "example": {
+                "email": "maria@example.com",
+                "password": "correct horse battery"
+              }
+            }
+          }
+        },
+        "description": "Rate limited per client IP."
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "summary": "Rotate the refresh token",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "New access + refresh tokens. The old refresh token stops working; presenting it again revokes all of the user's refresh tokens.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "description": "Rate limited per client IP."
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "summary": "Revoke a refresh token",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked (also when the token was unknown)."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "description": "Access tokens are stateless and stay valid until they expire (15 minutes by default)."
+      }
+    },
+    "/v1/customers": {
+      "post": {
+        "summary": "Create a customer",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "URL of the new customer."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "422": {
+            "$ref": "#/components/responses/Validation"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInput"
+              },
+              "example": {
+                "name": "Maria Silva",
+                "email": "maria@example.com",
+                "document": "529.982.247-25",
+                "phone": "(31) 99999-0000",
+                "address": {
+                  "street": "Rua das Flores",
+                  "number": "100",
+                  "city": "Belo Horizonte",
+                  "state": "MG",
+                  "zip_code": "30130-000"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List customers",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "200": {
+            "description": "One page, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/Validation"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Offset pagination with a stable order (`created_at` desc, `id` desc). `q` is a case-insensitive substring match on name, e-mail and document.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/CustomerStatus"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search text."
+          }
+        ]
+      }
+    },
+    "/v1/customers/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "Customer id (UUID)."
+        }
+      ],
+      "get": {
+        "summary": "Get a customer",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "200": {
+            "description": "The customer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Replace a customer (full update)",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "200": {
+            "description": "The updated customer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "422": {
+            "$ref": "#/components/responses/Validation"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInput"
+              }
+            }
+          }
+        },
+        "description": "Every writable field is overwritten: omitted optional fields (phone, address) are cleared."
+      },
+      "patch": {
+        "summary": "Update some fields of a customer",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "200": {
+            "description": "The updated customer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "422": {
+            "$ref": "#/components/responses/Validation"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerPatch"
+              }
+            }
+          }
+        },
+        "description": "Only the fields present are changed. `address`, when present, replaces the whole address. Read-modify-write without a version check: last write wins."
+      },
+      "delete": {
+        "summary": "Delete a customer permanently (admin only)",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CustomerStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "inactive"
+        ]
+      },
+      "Address": {
+        "type": "object",
+        "required": [
+          "street",
+          "number",
+          "city",
+          "state",
+          "zip_code"
+        ],
+        "properties": {
+          "street": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string",
+            "description": "Use S/N when there is none."
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2}$",
+            "example": "MG"
+          },
+          "zip_code": {
+            "type": "string",
+            "description": "8 digits; a hyphen is accepted.",
+            "example": "30130-000"
+          }
+        }
+      },
+      "CustomerInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "document"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Unique; stored lower-case."
+          },
+          "document": {
+            "type": "string",
+            "description": "CPF or CNPJ, with or without punctuation; check digits are validated. Unique.",
+            "example": "529.982.247-25"
+          },
+          "phone": {
+            "type": "string",
+            "description": "10 to 13 digits; punctuation is accepted.",
+            "example": "(31) 99999-0000"
+          },
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerStatus"
+              }
+            ],
+            "default": "active"
+          }
+        }
+      },
+      "CustomerPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Same fields as CustomerInput, all optional. `null` is the same as omitting the field.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "document": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Send an empty string to clear it."
+          },
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CustomerStatus"
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email",
+          "document",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "document": {
+            "type": "string",
+            "description": "Digits only.",
+            "example": "52998224725"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Digits only; omitted when empty."
+          },
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CustomerStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CustomerList": {
+        "type": "object",
+        "required": [
+          "data",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Customer"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Matches across all pages."
+          }
+        }
+      },
+      "Credentials": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 8,
+            "maxLength": 72
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          }
+        }
+      },
+      "TokenPair": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in",
+          "refresh_token"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT (HS256), short-lived."
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Access token lifetime in seconds."
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Opaque, single use."
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "description": "RFC 9457 problem details.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "about:blank"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable machine-readable error code.",
+            "example": "validation_failed"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Same value as the X-Request-ID response header."
+          },
+          "errors": {
+            "type": "array",
+            "description": "Present on 422.",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "message"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "example": "document"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed JSON, unknown field or trailing data (`invalid_json`).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, invalid or expired credentials/token.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The caller's role is not allowed (`forbidden`).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Customer not found (`customer_not_found`).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "E-mail or document already registered (`email_taken`, `document_taken`).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "TooLarge": {
+        "description": "Body larger than 1 MiB.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "UnsupportedMedia": {
+        "description": "Content-Type is not application/json.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Validation": {
+        "description": "Validation failed; see `errors` (`validation_failed`).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limit exceeded; see the Retry-After header (`rate_limited`).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Seconds to wait."
+          }
+        }
+      },
+      "Internal": {
+        "description": "Unexpected error (`internal_error`).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Dependency unavailable or request timed out.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      }
+    }
+  }
+}

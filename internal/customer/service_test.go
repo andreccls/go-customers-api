@@ -26,7 +26,7 @@ func newService() *customer.Service { return customer.NewService(memstore.NewCus
 func valid() customer.Input {
 	return customer.Input{
 		Name: "Maria Silva", Email: "maria@example.com", Document: "529.982.247-25",
-		Phone: "(31) 99999-0000",
+		Phone:   "(31) 99999-0000",
 		Address: customer.Address{Street: "Rua A", Number: "10", City: "Belo Horizonte", State: "mg", ZipCode: "30130-000"},
 	}
 }
@@ -214,7 +214,7 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func TestListDefaultsAndValidation(t *testing.T) {
+func TestListQueryAndValidation(t *testing.T) {
 	s := newService()
 	for i, doc := range []string{"52998224725", "11222333000181", "00000003700"} {
 		in := valid()
@@ -224,17 +224,17 @@ func TestListDefaultsAndValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	page, total, err := s.List(ctx, customer.Filter{Query: "  a@example "})
+	page, total, err := s.List(ctx, customer.Filter{Query: "  a@example ", Page: 1, PageSize: customer.DefaultPageSize})
 	if err != nil || total != 1 || len(page) != 1 {
-		t.Fatalf("defaults + trimmed query: %v total=%d len=%d", err, total, len(page))
+		t.Fatalf("trimmed query: %v total=%d len=%d", err, total, len(page))
 	}
 	_, _, err = s.List(ctx, customer.Filter{Page: -1, PageSize: 101, Status: "x"})
 	f := fieldsOf(t, err)
 	if !f["page"] || !f["page_size"] || !f["status"] {
 		t.Errorf("fields = %v", f)
 	}
-	if _, _, err := s.List(ctx, customer.Filter{PageSize: -5}); !fieldsOf(t, err)["page_size"] {
-		t.Errorf("negative page_size accepted: %v", err)
+	if _, _, err := s.List(ctx, customer.Filter{}); err == nil {
+		t.Error("the zero Filter has no page; callers must choose one")
 	}
 }
 
