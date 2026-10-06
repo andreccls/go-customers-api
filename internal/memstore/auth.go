@@ -16,9 +16,9 @@ type refresh struct {
 
 // Users is an in-memory auth.Store.
 type Users struct {
-	mu      sync.Mutex
-	byID    map[string]auth.User
-	tokens  map[string]*refresh
+	mu     sync.Mutex
+	byID   map[string]auth.User
+	tokens map[string]*refresh
 }
 
 // NewUsers returns an empty store.
