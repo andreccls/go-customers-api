@@ -1,0 +1,65 @@
+# Local development stack. All passwords below are DEVELOPMENT-ONLY defaults.
+name: go-customers-api
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: customers
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_postgres_password}
+      POSTGRES_DB: customers
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5436}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U customers -d customers"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: postgres://customers:${POSTGRES_PASSWORD:-dev_only_postgres_password}@postgres:5432/customers?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-0123456789abcdef}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-dev-only-admin-password}
+    ports:
+      - "127.0.0.1:${API_PORT:-8094}:8080"
+    # distroless has no shell/curl: the binary probes itself (`/api -healthcheck`).
+    healthcheck:
+      test: ["CMD", "/api", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+
+  # Go toolchain used by the Makefile (no Go needed on the host).
+  tools:
+    build:
+      context: .
+      target: dev
+    profiles: ["tools"]
+    working_dir: /src
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TEST_DATABASE_URL: postgres://customers:${POSTGRES_PASSWORD:-dev_only_postgres_password}@postgres:5432/customers?sslmode=disable
+      REQUIRE_DB: "1"
+      GOFLAGS: -buildvcs=false
+    volumes:
+      - ./:/src
+      - gocache:/root/.cache/go-build
+      - gomod:/go/pkg/mod
+
+volumes:
+  pgdata:
+  gocache:
+  gomod:
