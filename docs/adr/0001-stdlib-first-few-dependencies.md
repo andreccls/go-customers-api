@@ -19,7 +19,7 @@ métodos e parâmetros de caminho (`GET /v1/customers/{id}`, `r.PathValue("id")`
   verificador de CPF/CNPJ, normalização de telefone, endereço tudo-ou-nada). Código simples que devolve uma lista de
   `{field, message}` é mais legível que tags + mensagens customizadas, e a normalização acontece no mesmo lugar.
 - **Sem ORM:** SQL explícito com `pgx`. A tabela é uma só; o SQL cabe na tela e é o que realmente roda.
-- **Migrations:** arquivos `.sql` embutidos (`embed`) e um runner de ~50 linhas (tabela `schema_migrations`, uma transação
+- **Migrations:** arquivos `.sql` embutidos (`embed`) e um runner de ~60 linhas (tabela `schema_migrations`, uma transação
   por arquivo, `pg_advisory_lock` para duas instâncias subindo juntas). Só "up": veja Consequências.
 
 ## Consequências

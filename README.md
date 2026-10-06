@@ -233,7 +233,7 @@ Cada teste usa um schema PostgreSQL **isolado**, criado e removido por ele — n
 | **I** — Segregação de interfaces | Interfaces de 1–6 métodos declaradas por quem consome (`customer.Repository`, `auth.Store`, `httpapi.CustomerService`/`AuthService`); `httpapi` só vê o que usa |
 | **D** — Inversão de dependência | O núcleo (`customer`, `auth`) define as interfaces e não importa `pgx` nem `net/http`; `app` liga as implementações (composition root) |
 | **YAGNI** | Sem ORM, framework, validator por tags, repositório genérico, camada de DTO, cache, filas, métricas, soft delete, down-migrations |
-| **KISS** | Erros são valores (`errors.Is/As`); estado em structs simples; rate limit em ~40 linhas; migrations em ~50; uma tabela de rotas |
+| **KISS** | Erros são valores (`errors.Is/As`); estado em structs simples; rate limit em poucas dezenas de linhas; migrations em ~60; uma tabela de rotas |
 | **DRY** | `decode`/`writeJSON`/`writeProblem` únicos; `validation.Errors` compartilhado; suíte de contrato única para fake e banco; a tabela de rotas alimenta o roteador **e** o teste da spec |
 
 ## Documentação
