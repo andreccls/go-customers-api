@@ -2,7 +2,9 @@ package postgres_test
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -85,5 +87,37 @@ func TestMigrateReportsBrokenConnection(t *testing.T) {
 	pool.Close()
 	if err := postgres.Migrate(ctx, pool); err == nil {
 		t.Error("expected error on a closed pool")
+	}
+}
+
+// With the pool closed every query fails; the repositories must surface that error
+// (never swallow it or map it to "not found").
+func TestRepositoriesSurfaceDatabaseErrors(t *testing.T) {
+	ctx := context.Background()
+	pool := freshPool(t)
+	customers, users := postgres.NewCustomers(pool), postgres.NewUsers(pool)
+	pool.Close()
+
+	c := customer.Customer{ID: "6f1b1c3e-0b0e-4a53-9a43-3f0f0c1d2e3f"}
+	checks := map[string]error{
+		"Create":             customers.Create(ctx, c),
+		"Update":             customers.Update(ctx, c),
+		"Delete":             customers.Delete(ctx, c.ID),
+		"CreateUser":         users.CreateUser(ctx, auth.User{ID: c.ID}),
+		"SaveRefreshToken":   users.SaveRefreshToken(ctx, auth.RefreshToken{UserID: c.ID}),
+		"RevokeRefreshToken": users.RevokeRefreshToken(ctx, "x"),
+	}
+	_, checks["Get"] = customers.Get(ctx, c.ID)
+	_, _, checks["List"] = customers.List(ctx, customer.Filter{Page: 1, PageSize: 1})
+	_, checks["UserByEmail"] = users.UserByEmail(ctx, "a@example.com")
+	_, checks["UserByID"] = users.UserByID(ctx, c.ID)
+	_, checks["ConsumeRefreshToken"] = users.ConsumeRefreshToken(ctx, "x", time.Now())
+	for name, err := range checks {
+		if err == nil {
+			t.Errorf("%s: expected an error from a closed pool", name)
+		}
+		if errors.Is(err, customer.ErrNotFound) || errors.Is(err, auth.ErrNotFound) || errors.Is(err, auth.ErrInvalidToken) {
+			t.Errorf("%s: a database failure was reported as a domain error: %v", name, err)
+		}
 	}
 }

@@ -271,3 +271,10 @@ func TestStoreErrorsPropagate(t *testing.T) {
 		t.Errorf("user by id: %v", err)
 	}
 }
+
+func TestInvalidBcryptCostIsAnError(t *testing.T) {
+	svc := auth.NewService(memstore.NewUsers(), auth.Config{Secret: []byte(secret), Issuer: "test", BcryptCost: 99}, nil)
+	if _, err := svc.Register(ctx, "a@example.com", "s3cret-pass"); err == nil {
+		t.Error("hashing with an invalid cost must fail, not store a broken hash")
+	}
+}

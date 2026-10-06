@@ -169,6 +169,24 @@ func Customers(t *testing.T, newRepo func(t *testing.T) customer.Repository) {
 		}
 	})
 
+	t.Run("list: equal timestamps fall back to id order, so pages are stable", func(t *testing.T) {
+		r := newRepo(t)
+		for i := 0; i < 3; i++ {
+			c := sample(i + 1)
+			c.CreatedAt, c.UpdatedAt = base, base
+			if err := r.Create(ctx, c); err != nil {
+				t.Fatal(err)
+			}
+		}
+		got, _, err := r.List(ctx, customer.Filter{Page: 1, PageSize: 10})
+		if err != nil || len(got) != 3 {
+			t.Fatalf("%v len=%d", err, len(got))
+		}
+		if !(got[0].ID > got[1].ID && got[1].ID > got[2].ID) {
+			t.Errorf("ids not in descending order: %s %s %s", got[0].ID, got[1].ID, got[2].ID)
+		}
+	})
+
 	t.Run("list: status filter and search", func(t *testing.T) {
 		r := newRepo(t)
 		for i := 1; i <= 4; i++ {

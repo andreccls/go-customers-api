@@ -68,9 +68,6 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 	return n, err
 }
 
-// Unwrap lets http.ResponseController reach the real writer.
-func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
-
 // validRequestID accepts a client-supplied X-Request-ID only if it is short and
 // plain, so it is safe to echo into headers and logs.
 func validRequestID(id string) bool {

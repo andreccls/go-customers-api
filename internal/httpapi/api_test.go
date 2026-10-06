@@ -151,6 +151,17 @@ func TestBodyErrors(t *testing.T) {
 	e.wantProblem(post(`{"name":"`+strings.Repeat("x", 2<<20)+`"}`), 413, "body_too_large")
 }
 
+func TestEveryBodyEndpointRejectsMalformedJSON(t *testing.T) {
+	e := newEnv(t)
+	id := "6f1b1c3e-0b0e-4a53-9a43-3f0f0c1d2e3f"
+	for _, ep := range [][2]string{
+		{"POST", "/v1/auth/register"}, {"POST", "/v1/auth/login"}, {"POST", "/v1/auth/refresh"}, {"POST", "/v1/auth/logout"},
+		{"POST", "/v1/customers"}, {"PUT", "/v1/customers/" + id}, {"PATCH", "/v1/customers/" + id},
+	} {
+		e.wantProblem(e.do(ep[0], ep[1], e.userTk, `{"broken":`), 400, "invalid_json")
+	}
+}
+
 func TestAuthentication(t *testing.T) {
 	e := newEnv(t)
 	r := e.do("GET", "/v1/customers", "", nil)

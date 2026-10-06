@@ -215,9 +215,7 @@ func (s *Service) issue(ctx context.Context, u User) (Tokens, error) {
 		return Tokens{}, err
 	}
 	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return Tokens{}, err
-	}
+	_, _ = rand.Read(raw) // never fails: since Go 1.24 crypto/rand.Read crashes the program instead
 	refresh := base64.RawURLEncoding.EncodeToString(raw)
 	if err := s.store.SaveRefreshToken(ctx, RefreshToken{
 		Hash: hashToken(refresh), UserID: u.ID, ExpiresAt: now.Add(s.cfg.RefreshTTL),
