@@ -25,7 +25,7 @@ jobs:
       REQUIRE_DB: "1"   # a skipped integration suite must fail the build
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Format, vet, staticcheck
